@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Мои задачи</title>
+    <!-- Скрипт Telegram Mini App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #000000);
+            --hint-color: var(--tg-theme-hint-color, #999999);
+            --button-color: var(--tg-theme-button-color, #3390ec);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --secondary-bg: var(--tg-theme-secondary-bg-color, #f4f4f5);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 16px;
+            user-select: none;
+        }
+        h1 {
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background-color: var(--secondary-bg);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .task-item.completed {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid var(--hint-color);
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .task-item.completed .checkbox {
+            background-color: var(--button-color);
+            border-color: var(--button-color);
+        }
+        .task-item.completed .checkbox::after {
+            content: '✓';
+            color: var(--button-text-color);
+            font-size: 14px;
+        }
+        .task-content {
+            flex-grow: 1;
+        }
+        .task-date {
+            font-size: 12px;
+            color: var(--hint-color);
+            margin-top: 4px;
+        }
+        .loader {
+            text-align: center;
+            color: var(--hint-color);
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📌 Мои задачи</h1>
+    <div id="task-list" class="task-list">
+        <div class="loader">Загрузка...</div>
+    </div>
+
+    <script>
+        // Инициализация Telegram Mini App
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Разворачиваем на весь экран
+
+        // Получаем ID пользователя из Telegram
+        const userId = tg.initDataUnsafe?.user?.id;
+        
+        // ВАЖНО: Здесь должен быть URL твоего API. 
+        // Пока для тестов мы используем локальный адрес, но позже заменим его на хостинг.
+        const API_URL = "http://localhost:8000"; 
+
+        const listElement = document.getElementById('task-list');
+
+        // Функция загрузки задач
+        async function loadTasks() {
+            if (!userId) {
+                listElement.innerHTML = '<div class="loader">Ошибка: не удалось получить ID пользователя.</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/tasks/${userId}`);
+                if (!response.ok) throw new Error('Ошибка сети');
+                
+                const tasks = await response.json();
+                
+                if (tasks.length === 0) {
+                    listElement.innerHTML = '<div class="loader">У вас нет активных задач 🎉</div>';
+                    return;
+                }
+
+                listElement.innerHTML = '';
+                
+                tasks.forEach(task => {
+                    const item = document.createElement('div');
+                    item.className = 'task-item';
+                    item.innerHTML = `
+                        <div class="checkbox"></div>
+                        <div class="task-content">
+                            <div>#${task.id} ${task.body}</div>
+                            ${task.date_to ? `<div class="task-date">до ${task.date_to}</div>` : ''}
+                        </div>
+                    `;
+                    
+                    // Обработчик клика для закрытия задачи
+                    item.onclick = () => completeTask(task.id, item);
+                    
+                    listElement.appendChild(item);
+                });
+
+            } catch (error) {
+                console.error(error);
+                listElement.innerHTML = '<div class="loader">Не удалось загрузить задачи. Проверьте API.</div>';
+            }
+        }
+
+        // Функция закрытия задачи
+        async function completeTask(taskId, itemElement) {
+            try {
+                // Визуально отмечаем как выполненное
+                itemElement.classList.add('completed');
+                
+                const response = await fetch(`${API_URL}/tasks/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        task_id: taskId,
+                        user_id: userId
+                    })
+                });
+
+                if (!response.ok) throw new Error('Ошибка при обновлении');
+                
+                // Небольшая задержка, чтобы пользователь увидел галочку, и удаляем задачу из списка
+                setTimeout(() => {
+                    itemElement.style.display = 'none';
+                }, 500);
+
+            } catch (error) {
+                console.error(error);
+                // Если ошибка — возвращаем как было
+                itemElement.classList.remove('completed');
+                alert('Не удалось закрыть задачу');
+            }
+        }
+
+        // Запускаем загрузку при старте
+        loadTasks();
+    </script>
+</body>
+</html>
