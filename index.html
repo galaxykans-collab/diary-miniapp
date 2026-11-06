@@ -94,8 +94,7 @@
         // Получаем ID пользователя из Telegram
         const userId = tg.initDataUnsafe?.user?.id;
         
-        // ВАЖНО: Здесь должен быть URL твоего API. 
-        // Пока для тестов мы используем локальный адрес, но позже заменим его на хостинг.
+        // ТВОЯ ССЫЛКА ОТ NGROK
         const API_URL = "https://trench-slashed-stoop.ngrok-free.dev"; 
 
         const listElement = document.getElementById('task-list');
@@ -108,7 +107,12 @@
             }
 
             try {
-                const response = await fetch(`${API_URL}/tasks/${userId}`);
+                const response = await fetch(`${API_URL}/tasks/${userId}`, {
+                    headers: {
+                        "ngrok-skip-browser-warning": "true"
+                    }
+                });
+                
                 if (!response.ok) throw new Error('Ошибка сети');
                 
                 const tasks = await response.json();
@@ -152,7 +156,8 @@
                 const response = await fetch(`${API_URL}/tasks/complete`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
                     },
                     body: JSON.stringify({
                         task_id: taskId,
