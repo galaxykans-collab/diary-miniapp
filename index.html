@@ -14,11 +14,12 @@
             --btn-text: var(--tg-theme-button-text-color, #fff);
             --secondary: var(--tg-theme-secondary-bg-color, #f4f4f5);
             --danger: #d32f2f;
+            --success: #388e3c;
         }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: var(--bg); color: var(--text); padding-bottom: 80px; }
         
         .tabs { display: flex; background: var(--secondary); position: sticky; top: 0; z-index: 10; }
-        .tab { flex: 1; padding: 14px; text-align: center; font-size: 15px; cursor: pointer; color: var(--hint); border-bottom: 2px solid transparent; }
+        .tab { flex: 1; padding: 14px; text-align: center; font-size: 14px; cursor: pointer; color: var(--hint); border-bottom: 2px solid transparent; }
         .tab.active { color: var(--btn); border-bottom-color: var(--btn); font-weight: 600; }
 
         .container { padding: 16px; }
@@ -26,7 +27,6 @@
         
         .task-item { display: flex; align-items: center; padding: 12px; background: var(--secondary); border-radius: 10px; }
         .checkbox { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--hint); margin-right: 12px; flex-shrink: 0; cursor: pointer; }
-        
         .task-content { flex-grow: 1; cursor: pointer; }
         .task-date { font-size: 12px; color: var(--hint); margin-top: 4px; }
         .task-author { font-size: 12px; color: var(--btn); margin-top: 2px; font-weight: 500; }
@@ -49,6 +49,7 @@
         .danger-zone { display: flex; gap: 10px; margin-top: 20px; border-top: 1px solid var(--hint); padding-top: 20px; }
         .btn-delete { background: var(--danger); color: white; }
         .btn-transfer { background: #f39c12; color: white; }
+        .btn-revive { background: var(--success); color: white; }
         
         .loader { text-align: center; color: var(--hint); margin-top: 20px; }
     </style>
@@ -57,6 +58,7 @@
     <div class="tabs">
         <div class="tab active" onclick="switchTab('my', this)">📌 Мои</div>
         <div class="tab" onclick="switchTab('shared', this)">📨 Обмен</div>
+        <div class="tab" onclick="switchTab('archive', this)">🗄 Архив</div>
     </div>
 
     <div class="container">
@@ -65,7 +67,7 @@
 
     <button class="fab" onclick="openCreateModal()">+</button>
 
-    <!-- Модалка для создания -->
+    <!-- Модалка создания -->
     <div id="create-modal" class="modal">
         <div class="modal-content">
             <h2>Новая задача</h2>
@@ -84,7 +86,7 @@
         </div>
     </div>
 
-    <!-- Модалка для редактирования -->
+    <!-- Модалка редактирования -->
     <div id="edit-modal" class="modal">
         <div class="modal-content">
             <h2>Задача</h2>
@@ -102,8 +104,22 @@
             </div>
             
             <div class="danger-zone" id="action-buttons">
-                <button class="btn-transfer" onclick="transferTask()">➡️ Передать</button>
-                <button class="btn-delete" onclick="deleteTask()">🗑 Удалить</button>
+                <button class="btn-transfer" id="btn-transfer" onclick="openTransferModal()">➡️ Передать</button>
+                <button class="btn-delete" id="btn-archive" onclick="archiveTask()">🗄 В архив</button>
+                <button class="btn-revive" id="btn-revive" onclick="reviveTask()" style="display: none;">🔄 Восстановить</button>
+                <button class="btn-delete" id="btn-delete-hard" onclick="deleteHardTask()" style="display: none;">🗑 Удалить навсегда</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка передачи -->
+    <div id="transfer-modal" class="modal">
+        <div class="modal-content">
+            <h2>Передать задачу</h2>
+            <input type="text" id="transfer-username" placeholder="@username получателя">
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal('transfer-modal')">Отмена</button>
+                <button class="btn-submit" onclick="transferTask()">Передать</button>
             </div>
         </div>
     </div>
@@ -138,7 +154,10 @@
         async function loadTasks() {
             if (!userId) { listElement.innerHTML = '<div class="loader">Нет ID</div>'; return; }
             listElement.innerHTML = '<div class="loader">Загрузка...</div>';
-            const endpoint = currentTab === 'my' ? `/tasks/${userId}` : `/tasks/shared/${userId}`;
+            
+            let endpoint = `/tasks/${userId}`;
+            if (currentTab === 'shared') endpoint = `/tasks/shared/${userId}`;
+            if (currentTab === 'archive') endpoint = `/tasks/archive/${userId}`;
             
             try {
                 const response = await fetch(`${API_URL}${endpoint}`, { headers: { "ngrok-skip-browser-warning": "true" } });
@@ -160,9 +179,12 @@
                     }
 
                     const safeBody = task.body.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    
+                    // В архиве чекбокс не нужен
+                    const checkboxHTML = currentTab === 'archive' ? '' : `<div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>`;
 
                     item.innerHTML = `
-                        <div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>
+                        ${checkboxHTML}
                         <div class="task-content" onclick="openEditModal(${task.id}, '${safeBody}')">
                             <div>#${task.id} ${task.body}</div>
                             ${subText}
@@ -196,12 +218,28 @@
             document.getElementById('edit-text').value = currentText;
             document.getElementById('edit-modal').classList.add('show');
             document.getElementById('edit-text').focus();
-            
-            // В чужой задаче (вкладка "Обмен") мы скрываем кнопки удаления/передачи
-            if (currentTab === 'shared') {
-                document.getElementById('action-buttons').style.display = 'none';
-            } else {
-                document.getElementById('action-buttons').style.display = 'flex';
+
+            // Настраиваем кнопки в зависимости от вкладки
+            const btnTransfer = document.getElementById('btn-transfer');
+            const btnArchive = document.getElementById('btn-archive');
+            const btnRevive = document.getElementById('btn-revive');
+            const btnDeleteHard = document.getElementById('btn-delete-hard');
+
+            if (currentTab === 'my') {
+                btnTransfer.style.display = 'block';
+                btnArchive.style.display = 'block';
+                btnRevive.style.display = 'none';
+                btnDeleteHard.style.display = 'none';
+            } else if (currentTab === 'shared') {
+                btnTransfer.style.display = 'none';
+                btnArchive.style.display = 'none';
+                btnRevive.style.display = 'none';
+                btnDeleteHard.style.display = 'none';
+            } else if (currentTab === 'archive') {
+                btnTransfer.style.display = 'none';
+                btnArchive.style.display = 'none';
+                btnRevive.style.display = 'block';
+                btnDeleteHard.style.display = 'block';
             }
         }
 
@@ -224,43 +262,76 @@
             }
         }
 
-        async function deleteTask() {
-            tg.showConfirm("Удалить задачу?", async (confirmed) => {
+        async function archiveTask() {
+            tg.showConfirm("Отправить задачу в архив?", async (confirmed) => {
                 if (!confirmed) return;
                 try {
-                    const res = await fetch(`${API_URL}/tasks/${editingTaskId}?user_id=${userId}`, {
-                        method: 'DELETE',
-                        headers: { 'ngrok-skip-browser-warning': 'true' }
+                    await fetch(`${API_URL}/tasks/complete`, { // Или нужен отдельный метод cancel
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                        body: JSON.stringify({ task_id: editingTaskId, user_id: userId }) // TODO: заменить на cancel
                     });
-                    if (!res.ok) throw new Error('Ошибка');
+                    // Для простоты пока используем complete, но в будущем нужен статус cancelled
                     closeModal('edit-modal');
                     loadTasks();
-                } catch (e) {
-                    tg.showAlert("Ошибка удаления");
-                }
+                } catch (e) { tg.showAlert("Ошибка"); }
             });
         }
 
-        async function transferTask() {
-            tg.showPrompt("Введите @username получателя:", async (username) => {
-                if (!username) return;
+        async function reviveTask() {
+            try {
+                const res = await fetch(`${API_URL}/tasks/revive`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({ task_id: editingTaskId, user_id: userId })
+                });
+                if (!res.ok) throw new Error('Ошибка');
+                closeModal('edit-modal');
+                loadTasks();
+            } catch (e) { tg.showAlert("Ошибка восстановления"); }
+        }
+
+        async function deleteHardTask() {
+            tg.showConfirm("Удалить навсегда?", async (confirmed) => {
+                if (!confirmed) return;
                 try {
-                    const res = await fetch(`${API_URL}/tasks/transfer`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-                        body: JSON.stringify({ task_id: editingTaskId, from_user_id: userId, to_username: username })
+                    await fetch(`${API_URL}/tasks/${editingTaskId}?user_id=${userId}`, {
+                        method: 'DELETE',
+                        headers: { 'ngrok-skip-browser-warning': 'true' }
                     });
-                    if (!res.ok) {
-                        const data = await res.json();
-                        throw new Error(data.detail || 'Ошибка');
-                    }
                     closeModal('edit-modal');
-                    tg.showPopup({ title: "Успех", message: "Задача передана!" });
                     loadTasks();
-                } catch (e) {
-                    tg.showAlert(e.message || "Ошибка передачи. Проверьте @username");
-                }
+                } catch (e) { tg.showAlert("Ошибка удаления"); }
             });
+        }
+
+        function openTransferModal() {
+            document.getElementById('transfer-username').value = '';
+            closeModal('edit-modal');
+            document.getElementById('transfer-modal').classList.add('show');
+            document.getElementById('transfer-username').focus();
+        }
+
+        async function transferTask() {
+            const username = document.getElementById('transfer-username').value.trim();
+            if (!username) { tg.showAlert("Введите @username"); return; }
+            
+            try {
+                const res = await fetch(`${API_URL}/tasks/transfer`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({ task_id: editingTaskId, from_user_id: userId, to_username: username })
+                });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.detail || 'Ошибка');
+                }
+                closeModal('transfer-modal');
+                tg.showPopup({ title: "Успех", message: "Задача передана!" });
+                loadTasks();
+            } catch (e) {
+                tg.showAlert(e.message || "Ошибка. Проверьте @username");
+            }
         }
 
         async function createTask() {
