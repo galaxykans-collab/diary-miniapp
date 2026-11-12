@@ -47,8 +47,8 @@
         .btn-cancel { background: var(--secondary); color: var(--text); }
         .btn-submit { background: var(--btn); color: var(--btn-text); }
         
-        .danger-zone { display: flex; gap: 10px; margin-top: 20px; border-top: 1px solid var(--hint); padding-top: 20px; }
-        .danger-zone button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 14px; cursor: pointer; }
+        .danger-zone { display: flex; gap: 10px; margin-top: 20px; border-top: 1px solid var(--hint); padding-top: 20px; flex-wrap: wrap; }
+        .danger-zone button { flex: 1; min-width: 45%; padding: 12px; border-radius: 8px; border: none; font-size: 14px; cursor: pointer; }
         .btn-delete { background: var(--danger); color: white; }
         .btn-transfer { background: #f39c12; color: white; }
         .btn-revive { background: var(--success); color: white; }
@@ -69,7 +69,6 @@
 
     <button class="fab" onclick="openCreateModal()">+</button>
 
-    <!-- Модалка создания -->
     <div id="create-modal" class="modal">
         <div class="modal-content">
             <h2>Новая задача</h2>
@@ -88,7 +87,6 @@
         </div>
     </div>
 
-    <!-- Модалка редактирования -->
     <div id="edit-modal" class="modal">
         <div class="modal-content">
             <h2>Задача</h2>
@@ -101,27 +99,23 @@
                 <option value="7">Через 7 дней</option>
             </select>
             <div class="modal-actions">
-                <button class="btn-cancel" onclick="closeModal('edit-modal')">Отмена</button>
+                <button class="btn-cancel" onclick="closeModal('edit-modal')">Назад</button>
                 <button class="btn-submit" onclick="saveEdit()">Сохранить</button>
             </div>
             
             <div class="danger-zone" id="action-buttons">
                 <button class="btn-transfer" id="btn-transfer" onclick="openTransferModal()">➡️ Передать</button>
-                <button class="btn-delete" id="btn-archive" onclick="cancelTask()">🗄 В архив</button>
+                <!-- Переименовали в "Снять задачу" -->
+                <button class="btn-delete" id="btn-cancel-task" onclick="cancelTask()">🚫 Снять задачу</button>
                 
-                <!-- Кнопка для тех задач, что я отправил -->
                 <button class="btn-revive" id="btn-return" onclick="returnTask()">↩️ Вернуть себе</button>
-
                 <button class="btn-revive" id="btn-revive" onclick="reviveTask()">🔄 Восстановить</button>
                 <button class="btn-delete" id="btn-delete-hard" onclick="deleteHardTask()">🗑 Удалить навсегда</button>
-
-                <!-- Кнопка для тех задач, что прислали мне -->
                 <button class="btn-delete" id="btn-reject" onclick="rejectTask()">🚫 Отклонить</button>
             </div>
         </div>
     </div>
 
-    <!-- Модалка передачи -->
     <div id="transfer-modal" class="modal">
         <div class="modal-content">
             <h2>Передать задачу</h2>
@@ -184,7 +178,6 @@
                     
                     let subText = task.date_to ? `<div class="task-date">до ${task.date_to}</div>` : '';
                     
-                    // Логика для Обмена
                     if (currentTab === 'shared') {
                         const isAuthor = task.author_id === userId;
                         if (isAuthor) {
@@ -194,20 +187,17 @@
                         }
                     }
 
-                    // Логика для Архива
                     if (currentTab === 'archive') {
-                        const stText = task.status === 'done' ? '✅ Выполнено' : '✖️ Отменено';
+                        const stText = task.status === 'done' ? '✅ Выполнено' : '✖️ Снято';
                         subText += `<div class="task-status" style="color: ${task.status === 'done' ? 'var(--success)' : 'var(--danger)'}">${stText}</div>`;
                     }
 
                     const safeBody = task.body.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     
-                    // В архиве нет чекбокса, а в Обмене он есть только у полученных задач
                     let checkboxHTML = '';
                     if (currentTab === 'my') checkboxHTML = `<div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>`;
                     if (currentTab === 'shared' && task.author_id !== userId) checkboxHTML = `<div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>`;
 
-                    // В обмене нет карандаша для редактирования
                     const editIconHTML = currentTab === 'shared' ? '' : `<div class="edit-icon" onclick="event.stopPropagation(); openEditModal(${task.id}, '${safeBody}', ${task.author_id || 0})">✏️</div>`;
 
                     item.innerHTML = `
@@ -247,7 +237,7 @@
             document.getElementById('edit-modal').classList.add('show');
 
             const btnTransfer = document.getElementById('btn-transfer');
-            const btnArchive = document.getElementById('btn-archive');
+            const btnCancelTask = document.getElementById('btn-cancel-task');
             const btnReturn = document.getElementById('btn-return');
             const btnRevive = document.getElementById('btn-revive');
             const btnDeleteHard = document.getElementById('btn-delete-hard');
@@ -256,11 +246,11 @@
             const editDays = document.getElementById('edit-days');
             const saveBtn = document.querySelector('#edit-modal .btn-submit');
 
-            [btnTransfer, btnArchive, btnReturn, btnRevive, btnDeleteHard, btnReject].forEach(b => b.style.display = 'none');
+            [btnTransfer, btnCancelTask, btnReturn, btnRevive, btnDeleteHard, btnReject].forEach(b => b.style.display = 'none');
             
             if (currentTab === 'my') {
                 btnTransfer.style.display = 'block';
-                btnArchive.style.display = 'block';
+                btnCancelTask.style.display = 'block';
                 editText.disabled = false;
                 editDays.disabled = false;
                 saveBtn.style.display = 'block';
@@ -269,11 +259,9 @@
                 editDays.disabled = true;
                 saveBtn.style.display = 'none';
                 if (currentTaskAuthorId === userId) {
-                    // Я отправил, могу вернуть себе
                     btnReturn.style.display = 'block';
-                    btnArchive.style.display = 'block';
+                    btnCancelTask.style.display = 'block';
                 } else {
-                    // Мне отправили, могу отклонить
                     btnReject.style.display = 'block';
                 }
             } else if (currentTab === 'archive') {
@@ -285,7 +273,6 @@
             }
         }
 
-        // ... остальные функции (saveEdit, cancelTask, returnTask, rejectTask, reviveTask, deleteHardTask, openTransferModal, transferTask, createTask) остаются без изменений
         async function saveEdit() {
             const fullText = document.getElementById('edit-text').value.trim();
             const days = document.getElementById('edit-days').value;
@@ -303,7 +290,7 @@
         }
 
         async function cancelTask() {
-            tg.showConfirm("Отправить в архив?", async (confirmed) => {
+            tg.showConfirm("Снять задачу? Она уйдет в архив.", async (confirmed) => {
                 if (!confirmed) return;
                 try {
                     await fetch(`${API_URL}/tasks/cancel`, {
