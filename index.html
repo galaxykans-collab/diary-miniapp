@@ -106,18 +106,16 @@
             </div>
             
             <div class="danger-zone" id="action-buttons">
-                <!-- Кнопки для своих задач -->
                 <button class="btn-transfer" id="btn-transfer" onclick="openTransferModal()">➡️ Передать</button>
-                <button class="btn-delete" id="btn-archive" onclick="cancelTask()">🗄 Отменить</button>
+                <button class="btn-delete" id="btn-archive" onclick="cancelTask()">🗄 В архив</button>
                 
-                <!-- Кнопки для переданных мной -->
-                <button class="btn-revive" id="btn-return" onclick="returnTask()">↩️ Вернуть</button>
+                <!-- Кнопка для тех задач, что я отправил -->
+                <button class="btn-revive" id="btn-return" onclick="returnTask()">↩️ Вернуть себе</button>
 
-                <!-- Кнопки для архива -->
                 <button class="btn-revive" id="btn-revive" onclick="reviveTask()">🔄 Восстановить</button>
                 <button class="btn-delete" id="btn-delete-hard" onclick="deleteHardTask()">🗑 Удалить навсегда</button>
 
-                <!-- Кнопки для полученных задач -->
+                <!-- Кнопка для тех задач, что прислали мне -->
                 <button class="btn-delete" id="btn-reject" onclick="rejectTask()">🚫 Отклонить</button>
             </div>
         </div>
@@ -139,11 +137,12 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
         const userId = tg.initDataUnsafe?.user?.id;
-        const API_URL = "https://trench-slashed-stoop.ngrok-free.dev"; // НЕ ЗАБУДЬ ПОМЕНЯТЬ!
+        const API_URL = "https://trench-slashed-stoop.ngrok-free.dev";
 
         const listElement = document.getElementById('task-list');
         let currentTab = 'my';
         let editingTaskId = null;
+        let currentTaskAuthorId = null;
 
         function switchTab(tab, element) {
             currentTab = tab;
@@ -185,17 +184,17 @@
                     
                     let subText = task.date_to ? `<div class="task-date">до ${task.date_to}</div>` : '';
                     
-                    // Логика отображения статусов для Обмена
+                    // Логика для Обмена
                     if (currentTab === 'shared') {
                         const isAuthor = task.author_id === userId;
                         if (isAuthor) {
-                            subText += `<div class="task-author">→ Отправлено вами (ждет выполнения)</div>`;
+                            subText += `<div class="task-author">→ Отправлено: @${task.partner_name}</div>`;
                         } else {
-                            subText += `<div class="task-author">← Передано вам</div>`;
+                            subText += `<div class="task-author">← Получено от: @${task.partner_name}</div>`;
                         }
                     }
 
-                    // Логика отображения статусов для Архива
+                    // Логика для Архива
                     if (currentTab === 'archive') {
                         const stText = task.status === 'done' ? '✅ Выполнено' : '✖️ Отменено';
                         subText += `<div class="task-status" style="color: ${task.status === 'done' ? 'var(--success)' : 'var(--danger)'}">${stText}</div>`;
@@ -203,17 +202,17 @@
 
                     const safeBody = task.body.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     
-                    // В архиве нет чекбокса
-                    const checkboxHTML = currentTab === 'archive' ? '' : 
-                        (currentTab === 'shared' && task.author_id === userId ? '' : // В отправленных мной не показываем чекбокс
-                        `<div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>`);
+                    // В архиве нет чекбокса, а в Обмене он есть только у полученных задач
+                    let checkboxHTML = '';
+                    if (currentTab === 'my') checkboxHTML = `<div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>`;
+                    if (currentTab === 'shared' && task.author_id !== userId) checkboxHTML = `<div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>`;
 
                     // В обмене нет карандаша для редактирования
-                    const editIconHTML = currentTab === 'shared' ? '' : `<div class="edit-icon" onclick="event.stopPropagation(); openEditModal(${task.id}, '${safeBody}')">✏️</div>`;
+                    const editIconHTML = currentTab === 'shared' ? '' : `<div class="edit-icon" onclick="event.stopPropagation(); openEditModal(${task.id}, '${safeBody}', ${task.author_id || 0})">✏️</div>`;
 
                     item.innerHTML = `
                         ${checkboxHTML}
-                        <div class="task-content" onclick="openEditModal(${task.id}, '${safeBody}')">
+                        <div class="task-content" onclick="openEditModal(${task.id}, '${safeBody}', ${task.author_id || 0})">
                             <div>#${task.id} ${task.body}</div>
                             ${subText}
                         </div>
@@ -241,8 +240,9 @@
             }
         }
 
-        function openEditModal(taskId, currentText) {
+        function openEditModal(taskId, currentText, authorId) {
             editingTaskId = taskId;
+            currentTaskAuthorId = authorId;
             document.getElementById('edit-text').value = currentText;
             document.getElementById('edit-modal').classList.add('show');
 
@@ -256,7 +256,6 @@
             const editDays = document.getElementById('edit-days');
             const saveBtn = document.querySelector('#edit-modal .btn-submit');
 
-            // Скрываем всё по умолчанию
             [btnTransfer, btnArchive, btnReturn, btnRevive, btnDeleteHard, btnReject].forEach(b => b.style.display = 'none');
             
             if (currentTab === 'my') {
@@ -269,12 +268,12 @@
                 editText.disabled = true;
                 editDays.disabled = true;
                 saveBtn.style.display = 'none';
-                // Если я автор - могу вернуть
-                if (window.currentTaskAuthorId === userId) {
+                if (currentTaskAuthorId === userId) {
+                    // Я отправил, могу вернуть себе
                     btnReturn.style.display = 'block';
                     btnArchive.style.display = 'block';
                 } else {
-                    // Если мне передали - могу отклонить
+                    // Мне отправили, могу отклонить
                     btnReject.style.display = 'block';
                 }
             } else if (currentTab === 'archive') {
@@ -286,9 +285,7 @@
             }
         }
 
-        // Дополнительная переменная для хранения автора (нужна для логики обмена)
-        let currentTaskAuthorId = null;
-
+        // ... остальные функции (saveEdit, cancelTask, returnTask, rejectTask, reviveTask, deleteHardTask, openTransferModal, transferTask, createTask) остаются без изменений
         async function saveEdit() {
             const fullText = document.getElementById('edit-text').value.trim();
             const days = document.getElementById('edit-days').value;
@@ -306,7 +303,7 @@
         }
 
         async function cancelTask() {
-            tg.showConfirm("Отменить задачу (в архив)?", async (confirmed) => {
+            tg.showConfirm("Отправить в архив?", async (confirmed) => {
                 if (!confirmed) return;
                 try {
                     await fetch(`${API_URL}/tasks/cancel`, {
@@ -322,7 +319,7 @@
 
         async function returnTask() {
             try {
-                const res = await fetch(`${API_URL}/tasks/reject`, { // reject меняет user_id на author_id, то есть возвращает
+                const res = await fetch(`${API_URL}/tasks/reject`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
                     body: JSON.stringify({ task_id: editingTaskId, user_id: userId })
