@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Мои задачи</title>
-    <!-- Скрипт Telegram Mini App -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -16,68 +15,65 @@
             --secondary-bg: var(--tg-theme-secondary-bg-color, #f4f4f5);
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
             padding: 16px;
-            user-select: none;
+            padding-bottom: 80px; /* Место для кнопки + */
         }
-        h1 {
-            font-size: 20px;
-            margin-bottom: 16px;
-        }
-        .task-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
+        h1 { font-size: 20px; margin-bottom: 16px; }
+        .task-list { display: flex; flex-direction: column; gap: 10px; }
         .task-item {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            background-color: var(--secondary-bg);
-            border-radius: 10px;
-            cursor: pointer;
-            transition: opacity 0.2s;
+            display: flex; align-items: center; padding: 12px;
+            background-color: var(--secondary-bg); border-radius: 10px; cursor: pointer;
         }
-        .task-item.completed {
-            opacity: 0.5;
-            text-decoration: line-through;
-        }
+        .task-item.completed { opacity: 0.5; text-decoration: line-through; }
         .checkbox {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            border: 2px solid var(--hint-color);
-            margin-right: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
+            width: 24px; height: 24px; border-radius: 50%;
+            border: 2px solid var(--hint-color); margin-right: 12px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
         }
-        .task-item.completed .checkbox {
-            background-color: var(--button-color);
-            border-color: var(--button-color);
+        .task-item.completed .checkbox { background-color: var(--button-color); border-color: var(--button-color); }
+        .task-item.completed .checkbox::after { content: '✓'; color: var(--button-text-color); font-size: 14px; }
+        .task-content { flex-grow: 1; }
+        .task-date { font-size: 12px; color: var(--hint-color); margin-top: 4px; }
+        .loader { text-align: center; color: var(--hint-color); margin-top: 20px; }
+
+        /* Плавающая кнопка "+" */
+        .fab {
+            position: fixed; bottom: 20px; right: 20px;
+            width: 60px; height: 60px; border-radius: 50%;
+            background-color: var(--button-color); color: var(--button-text-color);
+            font-size: 30px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer;
+            border: none; outline: none;
         }
-        .task-item.completed .checkbox::after {
-            content: '✓';
-            color: var(--button-text-color);
-            font-size: 14px;
+
+        /* Модальное окно */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 100;
+            align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
         }
-        .task-content {
-            flex-grow: 1;
+        .modal.show { display: flex; }
+        .modal-content {
+            background: var(--bg-color); width: 100%; max-width: 400px;
+            border-radius: 16px; padding: 20px; box-sizing: border-box;
         }
-        .task-date {
-            font-size: 12px;
-            color: var(--hint-color);
-            margin-top: 4px;
+        .modal h2 { margin-top: 0; font-size: 18px; margin-bottom: 16px; }
+        .modal input, .modal select {
+            width: 100%; padding: 12px; margin-bottom: 12px; box-sizing: border-box;
+            border-radius: 8px; border: 1px solid var(--hint-color);
+            background: var(--secondary-bg); color: var(--text-color); font-size: 16px;
         }
-        .loader {
-            text-align: center;
-            color: var(--hint-color);
-            margin-top: 20px;
+        .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+        .modal-actions button {
+            flex: 1; padding: 12px; border-radius: 8px; border: none;
+            font-size: 16px; cursor: pointer; font-weight: 500;
         }
+        .btn-cancel { background: var(--secondary-bg); color: var(--text-color); }
+        .btn-submit { background: var(--button-color); color: var(--button-text-color); }
     </style>
 </head>
 <body>
@@ -86,35 +82,57 @@
         <div class="loader">Загрузка...</div>
     </div>
 
-    <script>
-        // Инициализация Telegram Mini App
-        const tg = window.Telegram.WebApp;
-        tg.expand(); // Разворачиваем на весь экран
+    <!-- Кнопка добавления -->
+    <button class="fab" onclick="openModal()">+</button>
 
-        // Получаем ID пользователя из Telegram
+    <!-- Модальное окно создания задачи -->
+    <div id="create-modal" class="modal">
+        <div class="modal-content">
+            <h2>Новая задача</h2>
+            <input type="text" id="new-action" placeholder="Действие (например, купить)" value="купить">
+            <input type="text" id="new-text" placeholder="Что именно?">
+            <select id="new-days">
+                <option value="">Без срока</option>
+                <option value="0">Сегодня</option>
+                <option value="1">Завтра</option>
+                <option value="3">Через 3 дня</option>
+                <option value="7">Через 7 дней</option>
+            </select>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+                <button class="btn-submit" onclick="createTask()">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
         const userId = tg.initDataUnsafe?.user?.id;
         
         // ТВОЯ ССЫЛКА ОТ NGROK
-        const API_URL = "https://trench-slashed-stoop.ngrok-free.dev"; 
+        const API_URL = "https://твоя-ссылка.ngrok-free.dev"; 
 
         const listElement = document.getElementById('task-list');
+        const modal = document.getElementById('create-modal');
 
-        // Функция загрузки задач
+        function openModal() {
+            modal.classList.add('show');
+            document.getElementById('new-text').value = '';
+            document.getElementById('new-action').value = 'купить';
+            document.getElementById('new-days').value = '';
+        }
+
+        function closeModal() {
+            modal.classList.remove('show');
+        }
+
         async function loadTasks() {
-            if (!userId) {
-                listElement.innerHTML = '<div class="loader">Ошибка: не удалось получить ID пользователя.</div>';
-                return;
-            }
-
+            if (!userId) return;
             try {
                 const response = await fetch(`${API_URL}/tasks/${userId}`, {
-                    headers: {
-                        "ngrok-skip-browser-warning": "true"
-                    }
+                    headers: { "ngrok-skip-browser-warning": "true" }
                 });
-                
-                if (!response.ok) throw new Error('Ошибка сети');
-                
                 const tasks = await response.json();
                 
                 if (tasks.length === 0) {
@@ -123,7 +141,6 @@
                 }
 
                 listElement.innerHTML = '';
-                
                 tasks.forEach(task => {
                     const item = document.createElement('div');
                     item.className = 'task-item';
@@ -134,53 +151,62 @@
                             ${task.date_to ? `<div class="task-date">до ${task.date_to}</div>` : ''}
                         </div>
                     `;
-                    
-                    // Обработчик клика для закрытия задачи
                     item.onclick = () => completeTask(task.id, item);
-                    
                     listElement.appendChild(item);
                 });
-
             } catch (error) {
-                console.error(error);
-                listElement.innerHTML = '<div class="loader">Не удалось загрузить задачи. Проверьте API.</div>';
+                listElement.innerHTML = '<div class="loader">Не удалось загрузить задачи.</div>';
             }
         }
 
-        // Функция закрытия задачи
         async function completeTask(taskId, itemElement) {
             try {
-                // Визуально отмечаем как выполненное
                 itemElement.classList.add('completed');
-                
-                const response = await fetch(`${API_URL}/tasks/complete`, {
+                await fetch(`${API_URL}/tasks/complete`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true'
-                    },
-                    body: JSON.stringify({
-                        task_id: taskId,
-                        user_id: userId
-                    })
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({ task_id: taskId, user_id: userId })
                 });
-
-                if (!response.ok) throw new Error('Ошибка при обновлении');
-                
-                // Небольшая задержка, чтобы пользователь увидел галочку, и удаляем задачу из списка
-                setTimeout(() => {
-                    itemElement.style.display = 'none';
-                }, 500);
-
+                setTimeout(() => itemElement.style.display = 'none', 500);
             } catch (error) {
-                console.error(error);
-                // Если ошибка — возвращаем как было
                 itemElement.classList.remove('completed');
                 alert('Не удалось закрыть задачу');
             }
         }
 
-        // Запускаем загрузку при старте
+        async function createTask() {
+            const action = document.getElementById('new-action').value.trim();
+            const text = document.getElementById('new-text').value.trim();
+            const days = document.getElementById('new-days').value;
+
+            if (!action || !text) {
+                alert("Заполните все поля");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/tasks/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        action: action,
+                        text: text,
+                        days: days ? parseInt(days) : null
+                    })
+                });
+
+                if (!response.ok) throw new Error('Ошибка');
+                
+                closeModal();
+                tg.showPopup({ title: "Успех", message: "Задача создана!" });
+                loadTasks(); // Обновляем список
+
+            } catch (error) {
+                alert("Не удалось создать задачу");
+            }
+        }
+
         loadTasks();
     </script>
 </body>
