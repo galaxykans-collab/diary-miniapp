@@ -16,7 +16,6 @@
         }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: var(--bg); color: var(--text); padding-bottom: 80px; }
         
-        /* Вкладки */
         .tabs { display: flex; background: var(--secondary); position: sticky; top: 0; z-index: 10; }
         .tab { flex: 1; padding: 14px; text-align: center; font-size: 15px; cursor: pointer; color: var(--hint); border-bottom: 2px solid transparent; }
         .tab.active { color: var(--btn); border-bottom-color: var(--btn); font-weight: 600; }
@@ -31,7 +30,6 @@
         
         .fab { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: var(--btn); color: var(--btn-text); font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 20; }
         
-        /* Модальное окно */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
         .modal.show { display: flex; }
         .modal-content { background: var(--bg); width: 90%; max-width: 400px; border-radius: 16px; padding: 20px; box-sizing: border-box; }
@@ -47,8 +45,8 @@
 </head>
 <body>
     <div class="tabs">
-        <div class="tab active" onclick="switchTab('my')">📌 Мои</div>
-        <div class="tab" onclick="switchTab('shared')">📨 Обмен</div>
+        <div class="tab active" onclick="switchTab('my', this)">📌 Мои</div>
+        <div class="tab" onclick="switchTab('shared', this)">📨 Обмен</div>
     </div>
 
     <div class="container">
@@ -60,7 +58,15 @@
     <div id="create-modal" class="modal">
         <div class="modal-content">
             <h2>Новая задача</h2>
-            <select id="new-action"></select>
+            
+            <!-- Выпадающий список действий -->
+            <select id="new-action" onchange="checkCustomAction()">
+                <!-- Сюда загрузятся действия -->
+            </select>
+            
+            <!-- Поле для своего действия (скрыто по умолчанию) -->
+            <input type="text" id="custom-action" placeholder="Введите своё действие (глагол)" style="display: none;">
+            
             <input type="text" id="new-text" placeholder="Что именно?">
             <input type="text" id="new-type" placeholder="Уточнение (где/куда) — необязательно">
             <select id="new-days">
@@ -87,10 +93,10 @@
         const modal = document.getElementById('create-modal');
         let currentTab = 'my';
 
-        function switchTab(tab) {
+        function switchTab(tab, element) {
             currentTab = tab;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            element.classList.add('active');
             loadTasks();
         }
 
@@ -98,8 +104,24 @@
             modal.classList.add('show');
             document.getElementById('new-text').value = '';
             document.getElementById('new-type').value = '';
+            document.getElementById('custom-action').value = '';
+            document.getElementById('custom-action').style.display = 'none';
+            // Сбрасываем селект на первый пункт
+            document.getElementById('new-action').selectedIndex = 0;
         }
         function closeModal() { modal.classList.remove('show'); }
+
+        // Проверяем, выбрано ли "Другое"
+        function checkCustomAction() {
+            const select = document.getElementById('new-action');
+            const customInput = document.getElementById('custom-action');
+            if (select.value === "__other__") {
+                customInput.style.display = 'block';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+            }
+        }
 
         async function loadActions() {
             try {
@@ -107,12 +129,21 @@
                 const actions = await res.json();
                 const select = document.getElementById('new-action');
                 select.innerHTML = '';
+                
+                // Добавляем полученные действия
                 actions.forEach(a => {
                     const opt = document.createElement('option');
                     opt.value = a.text;
                     opt.innerText = a.text;
                     select.appendChild(opt);
                 });
+                
+                // Добавляем пункт "Другое"
+                const otherOpt = document.createElement('option');
+                otherOpt.value = "__other__";
+                otherOpt.innerText = "✏️ Другое...";
+                select.appendChild(otherOpt);
+                
             } catch(e) { console.log("Не удалось загрузить действия"); }
         }
 
@@ -137,7 +168,7 @@
                     let subText = task.date_to ? `<div class="task-date">до ${task.date_to}</div>` : '';
                     if (currentTab === 'shared') {
                         const isAuthor = task.author_id === userId;
-                        subText += `<div class="task-author">${isAuthor ? '→ Отправлено вам' : '← Передано вами'}</div>`;
+                        subText += `<div class="task-author">${isAuthor ? '→ Отправлено вами' : '← Передано вам'}</div>`;
                     }
 
                     item.innerHTML = `
@@ -171,10 +202,18 @@
         }
 
         async function createTask() {
-            const action = document.getElementById('new-action').value;
+            const select = document.getElementById('new-action');
+            let action = select.value;
+            
+            // Если выбрано "Другое", берем значение из текстового поля
+            if (action === "__other__") {
+                action = document.getElementById('custom-action').value.trim();
+            }
+
             const text = document.getElementById('new-text').value.trim();
             const type_text = document.getElementById('new-type').value.trim();
             const days = document.getElementById('new-days').value;
+            
             if (!action || !text) { tg.showAlert("Заполните действие и текст"); return; }
 
             try {
