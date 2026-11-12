@@ -59,16 +59,9 @@
         <div class="modal-content">
             <h2>Новая задача</h2>
             
-            <!-- Выпадающий список действий -->
-            <select id="new-action" onchange="checkCustomAction()">
-                <!-- Сюда загрузятся действия -->
-            </select>
+            <!-- Одно большое поле ввода -->
+            <input type="text" id="new-text" placeholder="Что нужно сделать?" style="margin-bottom: 12px;">
             
-            <!-- Поле для своего действия (скрыто по умолчанию) -->
-            <input type="text" id="custom-action" placeholder="Введите своё действие (глагол)" style="display: none;">
-            
-            <input type="text" id="new-text" placeholder="Что именно?">
-            <input type="text" id="new-type" placeholder="Уточнение (где/куда) — необязательно">
             <select id="new-days">
                 <option value="">Без срока</option>
                 <option value="0">Сегодня</option>
@@ -87,7 +80,7 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
         const userId = tg.initDataUnsafe?.user?.id;
-        const API_URL = "https://trench-slashed-stoop.ngrok-free.dev"; // НЕ ЗАБУДЬ ПОМЕНЯТЬ!
+        const API_URL = "https://твоя-ссылка.ngrok-free.dev"; // НЕ ЗАБУДЬ ПОМЕНЯТЬ!
 
         const listElement = document.getElementById('task-list');
         const modal = document.getElementById('create-modal');
@@ -103,49 +96,9 @@
         function openModal() {
             modal.classList.add('show');
             document.getElementById('new-text').value = '';
-            document.getElementById('new-type').value = '';
-            document.getElementById('custom-action').value = '';
-            document.getElementById('custom-action').style.display = 'none';
-            // Сбрасываем селект на первый пункт
-            document.getElementById('new-action').selectedIndex = 0;
+            document.getElementById('new-text').focus(); // Сразу ставим курсор
         }
         function closeModal() { modal.classList.remove('show'); }
-
-        // Проверяем, выбрано ли "Другое"
-        function checkCustomAction() {
-            const select = document.getElementById('new-action');
-            const customInput = document.getElementById('custom-action');
-            if (select.value === "__other__") {
-                customInput.style.display = 'block';
-                customInput.focus();
-            } else {
-                customInput.style.display = 'none';
-            }
-        }
-
-        async function loadActions() {
-            try {
-                const res = await fetch(`${API_URL}/actions/${userId}`, { headers: { "ngrok-skip-browser-warning": "true" } });
-                const actions = await res.json();
-                const select = document.getElementById('new-action');
-                select.innerHTML = '';
-                
-                // Добавляем полученные действия
-                actions.forEach(a => {
-                    const opt = document.createElement('option');
-                    opt.value = a.text;
-                    opt.innerText = a.text;
-                    select.appendChild(opt);
-                });
-                
-                // Добавляем пункт "Другое"
-                const otherOpt = document.createElement('option');
-                otherOpt.value = "__other__";
-                otherOpt.innerText = "✏️ Другое...";
-                select.appendChild(otherOpt);
-                
-            } catch(e) { console.log("Не удалось загрузить действия"); }
-        }
 
         async function loadTasks() {
             if (!userId) { listElement.innerHTML = '<div class="loader">Нет ID</div>'; return; }
@@ -202,25 +155,16 @@
         }
 
         async function createTask() {
-            const select = document.getElementById('new-action');
-            let action = select.value;
-            
-            // Если выбрано "Другое", берем значение из текстового поля
-            if (action === "__other__") {
-                action = document.getElementById('custom-action').value.trim();
-            }
-
-            const text = document.getElementById('new-text').value.trim();
-            const type_text = document.getElementById('new-type').value.trim();
+            const fullText = document.getElementById('new-text').value.trim();
             const days = document.getElementById('new-days').value;
             
-            if (!action || !text) { tg.showAlert("Заполните действие и текст"); return; }
+            if (!fullText) { tg.showAlert("Напишите, что нужно сделать"); return; }
 
             try {
                 const response = await fetch(`${API_URL}/tasks/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-                    body: JSON.stringify({ user_id: userId, action: action, text: text, type_text: type_text, days: days ? parseInt(days) : null })
+                    body: JSON.stringify({ user_id: userId, full_text: fullText, days: days ? parseInt(days) : null })
                 });
                 if (!response.ok) throw new Error('Ошибка');
                 closeModal();
@@ -232,7 +176,6 @@
         }
 
         // Инициализация
-        loadActions();
         loadTasks();
     </script>
 </body>
