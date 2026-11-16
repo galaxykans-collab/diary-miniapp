@@ -426,4 +426,18 @@
             const dateStr = document.getElementById('new-date-input').value || null;
 
             try {
-                const response = await
+                const response = await fetch(`${API_URL}/tasks/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({ user_id: userId, full_text: fullText, date_str: dateStr })
+                });
+                if (!response.ok) throw new Error('Ошибка');
+                closeModal('create-modal');
+                loadTasks();
+            } catch (error) { tg.showAlert("Ошибка создания"); }
+        }
+
+        loadTasks();
+    </script>
+</body>
+</html>
