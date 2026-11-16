@@ -331,19 +331,25 @@
             }
         }
 
-        // Общая функция для извлечения дней из инпута
+        // Общая функция для извлечения дней из инпута (без учета часовых поясов)
         function getDaysFromInput(inputId) {
             const dateInput = document.getElementById(inputId).value;
             if (!dateInput) return null;
             
+            // Создаем даты из строки (формат YYYY-MM-DD)
+            const [year, month, day] = dateInput.split('-').map(Number);
+            const targetDate = new Date(year, month - 1, day); // Локальная дата, без времени
+            
             const today = new Date();
-            today.setHours(0,0,0,0);
-            const target = new Date(dateInput);
-            const diffTime = target - today;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            today.setHours(0, 0, 0, 0); // Обнуляем время у сегодняшней даты
+            
+            // Вычисляем разницу в миллисекундах
+            const diffTime = targetDate - today;
+            // Переводим в дни и округляем
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            
             return diffDays > 0 ? diffDays : 0;
         }
-
         async function saveEdit() {
             const fullText = document.getElementById('edit-text').value.trim();
             if (!fullText) { tg.showAlert("Текст не может быть пустым"); return; }
