@@ -40,8 +40,30 @@
         .modal.show { display: flex; }
         .modal-content { background: var(--bg); width: 90%; max-width: 400px; border-radius: 16px; padding: 20px; box-sizing: border-box; }
         .modal h2 { margin-top: 0; font-size: 18px; margin-bottom: 16px; }
+        
         .modal input, .modal select { width: 100%; padding: 12px; margin-bottom: 12px; box-sizing: border-box; border-radius: 8px; border: 1px solid var(--hint); background: var(--secondary); color: var(--text); font-size: 16px; }
         
+        /* Блок с датой */
+        .date-section { margin-bottom: 16px; }
+        .date-row { display: flex; gap: 10px; margin-bottom: 8px; }
+        .date-row input[type="date"] { margin-bottom: 0; flex-grow: 1; }
+        .btn-clear-date { background: var(--secondary); color: var(--danger); border: 1px solid var(--hint); border-radius: 8px; cursor: pointer; padding: 0 15px; font-size: 20px; }
+        
+        /* Быстрые кнопки */
+        .quick-days { display: flex; gap: 6px; flex-wrap: wrap; }
+        .quick-days button { 
+            flex: 1; 
+            padding: 8px 4px; 
+            font-size: 12px; 
+            background: var(--secondary); 
+            color: var(--text); 
+            border: 1px solid var(--hint); 
+            border-radius: 6px; 
+            cursor: pointer; 
+            white-space: nowrap;
+        }
+        .quick-days button:active { background: var(--btn); color: var(--btn-text); }
+
         .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
         .modal-actions button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 16px; cursor: pointer; }
         .btn-cancel { background: var(--secondary); color: var(--text); }
@@ -83,17 +105,25 @@
 
     <button class="fab" onclick="openCreateModal()">+</button>
 
+    <!-- Модалка создания -->
     <div id="create-modal" class="modal">
         <div class="modal-content">
             <h2>Новая задача</h2>
             <input type="text" id="new-text" placeholder="Что нужно сделать?">
-            <select id="new-days">
-                <option value="">Без срока</option>
-                <option value="0">Сегодня</option>
-                <option value="1">Завтра</option>
-                <option value="3">Через 3 дня</option>
-                <option value="7">Через 7 дней</option>
-            </select>
+            
+            <div class="date-section">
+                <div class="date-row">
+                    <input type="date" id="new-date-input">
+                    <button class="btn-clear-date" onclick="document.getElementById('new-date-input').value = ''" title="Без срока">✖</button>
+                </div>
+                <div class="quick-days">
+                    <button onclick="setQuickDate('new-date-input', 0)">Сегодня</button>
+                    <button onclick="setQuickDate('new-date-input', 1)">Завтра</button>
+                    <button onclick="setQuickDate('new-date-input', 3)">+3 дня</button>
+                    <button onclick="setQuickDate('new-date-input', 7)">+7 дней</button>
+                </div>
+            </div>
+
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeModal('create-modal')">Отмена</button>
                 <button class="btn-submit" onclick="createTask()">Создать</button>
@@ -101,19 +131,24 @@
         </div>
     </div>
 
+    <!-- Модалка редактирования -->
     <div id="edit-modal" class="modal">
         <div class="modal-content">
             <h2>Задача</h2>
             <input type="text" id="edit-text" placeholder="Текст задачи">
             
-            <!-- Теперь select хранит не дни, а абсолютную дату (value="YYYY-MM-DD") -->
-            <select id="edit-due">
-                <option value="">Без срока</option>
-                <option value="today">Сегодня</option>
-                <option value="1">Завтра</option>
-                <option value="3">Через 3 дня</option>
-                <option value="7">Через 7 дней</option>
-            </select>
+            <div class="date-section">
+                <div class="date-row">
+                    <input type="date" id="edit-date-input">
+                    <button class="btn-clear-date" onclick="document.getElementById('edit-date-input').value = ''" title="Без срока">✖</button>
+                </div>
+                <div class="quick-days">
+                    <button onclick="setQuickDate('edit-date-input', 0)">Сегодня</button>
+                    <button onclick="setQuickDate('edit-date-input', 1)">Завтра</button>
+                    <button onclick="setQuickDate('edit-date-input', 3)">+3 дня</button>
+                    <button onclick="setQuickDate('edit-date-input', 7)">+7 дней</button>
+                </div>
+            </div>
             
             <div class="action-grid" id="action-buttons">
                 <button class="btn-transfer" id="btn-transfer" onclick="openTransferModal()">➡️ Передать</button>
@@ -152,6 +187,16 @@
         let editingTaskId = null;
         let currentTaskAuthorId = null;
 
+        // Функция для быстрой установки даты (+N дней от сегодня)
+        function setQuickDate(inputId, days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            document.getElementById(inputId).value = `${yyyy}-${mm}-${dd}`;
+        }
+
         function switchTab(tab, element) {
             currentTab = tab;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -161,6 +206,7 @@
 
         function openCreateModal() {
             document.getElementById('new-text').value = '';
+            document.getElementById('new-date-input').value = '';
             document.getElementById('create-modal').classList.add('show');
             document.getElementById('new-text').focus();
         }
@@ -248,27 +294,7 @@
             editingTaskId = taskId;
             currentTaskAuthorId = authorId;
             document.getElementById('edit-text').value = currentText;
-            
-            // Устанавливаем текущую дату в селект
-            const editDueSelect = document.getElementById('edit-due');
-            // Если currentDue (YYYY-MM-DD) совпадает с "сегодня", ставим today, иначе оставляем
-            // Для простоты: если currentDue есть, добавляем его как выбранную опцию
-            // Но в HTML у нас фиксированные опции. 
-            // В реальном приложении мы бы генерировали даты, но пока оставим базовые опции.
-            // Если currentDue есть, но его нет в списке, мы можем добавить его на лету
-            if (currentDue) {
-                let exists = Array.from(editDueSelect.options).some(opt => opt.value === currentDue);
-                if (!exists) {
-                    // Добавляем опцию "до {currentDue}"
-                    const opt = document.createElement('option');
-                    opt.value = currentDue;
-                    opt.text = `до ${currentDue}`;
-                    editDueSelect.add(opt);
-                }
-                editDueSelect.value = currentDue;
-            } else {
-                editDueSelect.value = "";
-            }
+            document.getElementById('edit-date-input').value = currentDue || '';
 
             document.getElementById('edit-modal').classList.add('show');
 
@@ -279,7 +305,6 @@
             const btnDeleteHard = document.getElementById('btn-delete-hard');
             const btnReject = document.getElementById('btn-reject');
             const editText = document.getElementById('edit-text');
-            const editDays = document.getElementById('edit-days'); // Устарело, но пусть будет
             const saveBtn = document.querySelector('#edit-modal .btn-submit');
 
             [btnTransfer, btnCancelTask, btnReturn, btnRevive, btnDeleteHard, btnReject].forEach(b => b.style.display = 'none');
@@ -306,26 +331,24 @@
             }
         }
 
+        // Общая функция для извлечения дней из инпута
+        function getDaysFromInput(inputId) {
+            const dateInput = document.getElementById(inputId).value;
+            if (!dateInput) return null;
+            
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const target = new Date(dateInput);
+            const diffTime = target - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays > 0 ? diffDays : 0;
+        }
+
         async function saveEdit() {
             const fullText = document.getElementById('edit-text').value.trim();
-            const newDue = document.getElementById('edit-due').value;
             if (!fullText) { tg.showAlert("Текст не может быть пустым"); return; }
 
-            // Пробуем преобразовать выбранное значение в количество дней
-            let days = null;
-            if (newDue === 'today') days = 0;
-            else if (newDue === '1') days = 1;
-            else if (newDue === '3') days = 3;
-            else if (newDue === '7') days = 7;
-            else if (newDue !== '') {
-                // Если это конкретная дата (YYYY-MM-DD), вычисляем разницу в днях
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                const target = new Date(newDue);
-                const diffTime = target - today;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                days = diffDays > 0 ? diffDays : 0;
-            }
+            const days = getDaysFromInput('edit-date-input');
 
             try {
                 const response = await fetch(`${API_URL}/tasks/update`, {
@@ -432,13 +455,15 @@
 
         async function createTask() {
             const fullText = document.getElementById('new-text').value.trim();
-            const days = document.getElementById('new-days').value;
             if (!fullText) { tg.showAlert("Напишите, что нужно сделать"); return; }
+
+            const days = getDaysFromInput('new-date-input');
+
             try {
                 const response = await fetch(`${API_URL}/tasks/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-                    body: JSON.stringify({ user_id: userId, full_text: fullText, days: days ? parseInt(days) : null })
+                    body: JSON.stringify({ user_id: userId, full_text: fullText, days: days })
                 });
                 if (!response.ok) throw new Error('Ошибка');
                 closeModal('create-modal');
