@@ -63,7 +63,6 @@
             font-size: 14px; 
             cursor: pointer; 
         }
-        .danger-zone button { flex: 1; min-width: 45%; padding: 12px; border-radius: 8px; border: none; font-size: 14px; cursor: pointer; }
         .btn-delete { background: var(--danger); color: white; }
         .btn-transfer { background: #f39c12; color: white; }
         .btn-revive { background: var(--success); color: white; }
@@ -95,6 +94,7 @@
                 <option value="3">Через 3 дня</option>
                 <option value="7">Через 7 дней</option>
             </select>
+            <!-- Кнопки создания остаются здесь -->
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="closeModal('create-modal')">Отмена</button>
                 <button class="btn-submit" onclick="createTask()">Создать</button>
@@ -113,13 +113,11 @@
                 <option value="3">Через 3 дня</option>
                 <option value="7">Через 7 дней</option>
             </select>
-            <div class="modal-actions">
-                <button class="btn-cancel" onclick="closeModal('edit-modal')">Назад</button>
-                <button class="btn-submit" onclick="saveEdit()">Сохранить</button>
-            </div>
+            
+            <!-- Старые кнопки удалены, теперь они внутри action-grid -->
             
             <div class="action-grid" id="action-buttons">
-                <!-- Верхний ряд: действия с задачей -->
+                <!-- Действия с задачей (будут скрываться/показываться в зависимости от контекста) -->
                 <button class="btn-transfer" id="btn-transfer" onclick="openTransferModal()">➡️ Передать</button>
                 <button class="btn-delete" id="btn-cancel-task" onclick="cancelTask()">🚫 Снять</button>
                 
@@ -128,7 +126,7 @@
                 <button class="btn-delete" id="btn-delete-hard" onclick="deleteHardTask()">🗑 Удалить</button>
                 <button class="btn-delete" id="btn-reject" onclick="rejectTask()">🚫 Отклонить</button>
 
-                <!-- Нижний ряд: действия с окном (всегда видны) -->
+                <!-- Кнопки окна (всегда видны) -->
                 <button class="btn-cancel" onclick="closeModal('edit-modal')">Назад</button>
                 <button class="btn-submit" onclick="saveEdit()">Сохранить</button>
             </div>
@@ -265,7 +263,7 @@
             const editDays = document.getElementById('edit-days');
             const saveBtn = document.querySelector('#edit-modal .btn-submit');
 
-                        // Скрываем только кнопки действий, но не "Назад" и "Сохранить"
+            // Скрываем все кнопки действий
             [btnTransfer, btnCancelTask, btnReturn, btnRevive, btnDeleteHard, btnReject].forEach(b => b.style.display = 'none');
             
             if (currentTab === 'my') {
