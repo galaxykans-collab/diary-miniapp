@@ -56,9 +56,11 @@
         .remind-section { margin-bottom: 16px; border-top: 1px solid var(--secondary); padding-top: 12px; }
         .remind-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 10px; font-size: 15px; }
         .remind-toggle input { width: 18px; height: 18px; }
-        .remind-days { display: flex; justify-content: space-between; gap: 4px; }
-        .day-btn { flex: 1; padding: 8px 0; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; background: var(--secondary); color: var(--text); }
-        .day-btn.selected { background: var(--btn); color: var(--btn-text); }
+        
+        .remind-days-container { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+        .day-btn { flex: 1; min-width: 30px; padding: 8px 0; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; background: var(--secondary); color: var(--text); border: 1px solid var(--hint); }
+        .day-btn.selected { background: var(--btn); color: var(--btn-text); border-color: var(--btn); }
+        .btn-select-all { flex: 0 0 auto; padding: 8px 12px; font-size: 12px; background: var(--btn); color: var(--btn-text); border: none; border-radius: 6px; cursor: pointer; }
 
         .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
         .modal-actions button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 16px; cursor: pointer; }
@@ -105,13 +107,12 @@
                 </div>
             </div>
             
-            <!-- Напоминание при создании (упрощенное) -->
             <div class="remind-section">
                 <label class="remind-toggle">
                     <input type="checkbox" id="new-remind-checkbox">
-                    <span>🔔 Напомнить об этой задаче</span>
+                    <span>🔔 Включить напоминание</span>
                 </label>
-                <div style="font-size: 12px; color: var(--hint);" id="new-remind-hint">Будет напоминать каждый день по утрам.</div>
+                <div style="font-size: 12px; color: var(--hint);">Будет напоминать каждый день по утрам.</div>
             </div>
 
             <div class="modal-actions">
@@ -140,14 +141,15 @@
                 </div>
             </div>
             
-            <!-- Блок напоминаний (с выбором дней) -->
             <div class="remind-section" id="edit-remind-section">
                 <label class="remind-toggle">
                     <input type="checkbox" id="edit-remind-checkbox" onchange="toggleRemindDays()">
                     <span>🔔 Включить напоминание</span>
                 </label>
-                <div id="remind-days-container" class="remind-days" style="display: none;">
-                    <!-- Кнопки дней недели генерируются в JS -->
+                <div id="edit-remind-days-wrapper" style="display: none;">
+                    <div class="remind-days-container" id="remind-days-container">
+                        <!-- Кнопки дней недели -->
+                    </div>
                 </div>
             </div>
             
@@ -186,13 +188,28 @@
         let editingTaskId = null;
         let currentTaskAuthorId = null;
         
-        // Инициализация кнопок дней недели
         const daysOfWeek = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
         let selectedDays = []; // Массив выбранных номеров (1-7)
 
         function renderDayButtons() {
             const container = document.getElementById('remind-days-container');
             container.innerHTML = '';
+            
+            // Кнопка "Все"
+            const allBtn = document.createElement('button');
+            allBtn.className = 'btn-select-all';
+            allBtn.innerText = 'Все';
+            allBtn.onclick = () => {
+                if (selectedDays.length === 7) {
+                    selectedDays = []; // Если все выбраны, снимаем все
+                } else {
+                    selectedDays = [1,2,3,4,5,6,7]; // Иначе выбираем все
+                }
+                renderDayButtons();
+            };
+            container.appendChild(allBtn);
+
+            // Кнопки дней
             daysOfWeek.forEach((day, index) => {
                 const dayNum = index + 1;
                 const isSelected = selectedDays.includes(dayNum);
@@ -200,10 +217,11 @@
                 btn.className = `day-btn ${isSelected ? 'selected' : ''}`;
                 btn.innerText = day;
                 btn.onclick = () => {
-                    if (isSelected) {
+                    if (selectedDays.includes(dayNum)) {
                         selectedDays = selectedDays.filter(d => d !== dayNum);
                     } else {
                         selectedDays.push(dayNum);
+                        selectedDays.sort(); // Сортируем
                     }
                     renderDayButtons();
                 };
@@ -213,7 +231,7 @@
 
         function toggleRemindDays() {
             const isChecked = document.getElementById('edit-remind-checkbox').checked;
-            document.getElementById('remind-days-container').style.display = isChecked ? 'flex' : 'none';
+            document.getElementById('edit-remind-days-wrapper').style.display = isChecked ? 'block' : 'none';
         }
 
         function setQuickDate(inputId, days) {
@@ -287,6 +305,8 @@
                     }
 
                     const safeBody = task.body.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    // Добавляем информацию о напоминании, если оно есть
+                    const remindIcon = task.remind ? ' 🔔' : '';
                     
                     let checkboxHTML = '';
                     if (currentTab === 'my') checkboxHTML = `<div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>`;
@@ -297,7 +317,7 @@
                     item.innerHTML = `
                         ${checkboxHTML}
                         <div class="task-content" onclick="openEditModal(${task.id}, '${safeBody}', ${task.author_id || 0}, '${task.date_to || ''}', ${task.remind || false}, '${task.remind_days || ''}')">
-                            <div>#${task.id} ${task.body}</div>
+                            <div>#${task.id} ${task.body}${remindIcon}</div>
                             ${subText}
                         </div>
                         ${editIconHTML}
@@ -330,12 +350,13 @@
             document.getElementById('edit-text').value = currentText;
             document.getElementById('edit-date-input').value = currentDue || '';
             
-            // Настройка напоминаний
             document.getElementById('edit-remind-checkbox').checked = isRemind;
-            if (remindDaysStr) {
+            
+            // Инициализация выбранных дней
+            if (isRemind && remindDaysStr) {
                 selectedDays = remindDaysStr.split(',').map(Number).filter(n => !isNaN(n));
             } else {
-                selectedDays = [1,2,3,4,5,6,7]; // По умолчанию все
+                selectedDays = []; // По умолчанию пусто
             }
             renderDayButtons();
             toggleRemindDays();
@@ -387,8 +408,14 @@
             const fullText = document.getElementById('edit-text').value.trim();
             if (!fullText) { tg.showAlert("Текст не может быть пустым"); return; }
             const dateStr = document.getElementById('edit-date-input').value || null;
-            const remind = document.getElementById('edit-remind-checkbox').checked;
-            const remindDays = selectedDays.join(',') || "1,2,3,4,5,6,7";
+            
+            let remind = document.getElementById('edit-remind-checkbox').checked;
+            let remindDays = selectedDays.join(',');
+
+            // Если галка стоит, но дни не выбраны — принудительно снимаем галку
+            if (remind && selectedDays.length === 0) {
+                remind = false;
+            }
 
             try {
                 const response = await fetch(`${API_URL}/tasks/update`, {
@@ -515,7 +542,7 @@
                         full_text: fullText, 
                         date_str: dateStr,
                         remind: remind,
-                        remind_days: "1,2,3,4,5,6,7" // По умолчанию все дни
+                        remind_days: "1,2,3,4,5,6,7"
                     })
                 });
                 if (!response.ok) throw new Error('Ошибка');
