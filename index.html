@@ -60,7 +60,21 @@
         .remind-days-container { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
         .day-btn { flex: 1; min-width: 30px; padding: 8px 0; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; background: var(--secondary); color: var(--text); border: 1px solid var(--hint); }
         .day-btn.selected { background: var(--btn); color: var(--btn-text); border-color: var(--btn); }
-        .btn-select-all { flex: 0 0 auto; padding: 8px 12px; font-size: 12px; background: var(--btn); color: var(--btn-text); border: none; border-radius: 6px; cursor: pointer; }
+        .btn-select-all { 
+            flex: 0 0 auto; 
+            padding: 8px 12px; 
+            font-size: 12px; 
+            background: var(--secondary); 
+            color: var(--text); 
+            border: 1px solid var(--hint); 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold;
+        }
+        .btn-select-all:active { 
+            background: var(--btn); 
+            color: var(--btn-text); 
+        }
 
         .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
         .modal-actions button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 16px; cursor: pointer; }
