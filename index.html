@@ -19,7 +19,18 @@
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: var(--bg); color: var(--text); padding-bottom: 80px; }
         
         .tabs { display: flex; background: var(--secondary); position: sticky; top: 0; z-index: 10; }
-        .tab { flex: 1; padding: 14px; text-align: center; font-size: 14px; cursor: pointer; color: var(--hint); border-bottom: 2px solid transparent; }
+                .tab { 
+            flex: 1; 
+            padding: 12px 2px; /* Уменьшили отступы по бокам */
+            text-align: center; 
+            font-size: 11px; /* Уменьшили шрифт, чтобы жирный текст помещался */
+            cursor: pointer; 
+            color: var(--hint); 
+            border-bottom: 2px solid transparent; 
+            white-space: nowrap; /* ЗАПРЕЩАЕТ ПЕРЕНОС СТРОКИ */
+            overflow: hidden; /* Скрывает вылезающий текст, если он не влез */
+            text-overflow: ellipsis; /* Если не влезает - ставит троеточие */
+        }
         .tab.active { color: var(--btn); border-bottom-color: var(--btn); font-weight: 600; }
 
         .container { padding: 16px; }
