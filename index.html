@@ -160,6 +160,16 @@
                     <input type="checkbox" id="edit-remind-checkbox" onchange="toggleRemindDays()">
                     <span>🔔 Включить напоминание</span>
                 </label>
+                
+                <!-- Блок Утро/Вечер -->
+                <div class="remind-time-container" id="remind-time-container" style="display: none; margin-bottom: 10px;">
+                    <div style="font-size: 13px; color: var(--hint); margin-bottom: 5px;">Когда напоминать?</div>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="time-btn" id="time-morning" onclick="setRemindTime('morning')" style="flex:1; padding: 8px; border-radius: 6px; border: 1px solid var(--hint); background: var(--secondary); color: var(--text); cursor: pointer;">🌅 Утро</button>
+                        <button class="time-btn" id="time-evening" onclick="setRemindTime('evening')" style="flex:1; padding: 8px; border-radius: 6px; border: 1px solid var(--hint); background: var(--secondary); color: var(--text); cursor: pointer;">🌙 Вечер</button>
+                    </div>
+                </div>
+
                 <div id="edit-remind-days-wrapper" style="display: none;">
                     <div class="remind-days-container" id="remind-days-container">
                         <!-- Кнопки дней недели -->
@@ -203,7 +213,8 @@
         let currentTaskAuthorId = null;
         
         const daysOfWeek = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-        let selectedDays = []; // Массив выбранных номеров (1-7)
+        let selectedDays = []; 
+        let currentRemindTime = 'morning'; // По умолчанию утро
 
         function renderDayButtons() {
             const container = document.getElementById('remind-days-container');
@@ -215,9 +226,9 @@
             allBtn.innerText = 'Все';
             allBtn.onclick = () => {
                 if (selectedDays.length === 7) {
-                    selectedDays = []; // Если все выбраны, снимаем все
+                    selectedDays = []; 
                 } else {
-                    selectedDays = [1,2,3,4,5,6,7]; // Иначе выбираем все
+                    selectedDays = [1,2,3,4,5,6,7]; 
                 }
                 renderDayButtons();
             };
@@ -235,7 +246,7 @@
                         selectedDays = selectedDays.filter(d => d !== dayNum);
                     } else {
                         selectedDays.push(dayNum);
-                        selectedDays.sort(); // Сортируем
+                        selectedDays.sort(); 
                     }
                     renderDayButtons();
                 };
@@ -243,9 +254,33 @@
             });
         }
 
+        // НОВЫЕ ФУНКЦИИ ДЛЯ ВРЕМЕНИ
+        function setRemindTime(time) {
+            currentRemindTime = time;
+            updateTimeButtons();
+        }
+
+        function updateTimeButtons() {
+            const btnMorning = document.getElementById('time-morning');
+            const btnEvening = document.getElementById('time-evening');
+            
+            if (currentRemindTime === 'morning') {
+                btnMorning.style.background = 'var(--btn)';
+                btnMorning.style.color = 'var(--btn-text)';
+                btnEvening.style.background = 'var(--secondary)';
+                btnEvening.style.color = 'var(--text)';
+            } else {
+                btnEvening.style.background = 'var(--btn)';
+                btnEvening.style.color = 'var(--btn-text)';
+                btnMorning.style.background = 'var(--secondary)';
+                btnMorning.style.color = 'var(--text)';
+            }
+        }
+
         function toggleRemindDays() {
             const isChecked = document.getElementById('edit-remind-checkbox').checked;
             document.getElementById('edit-remind-days-wrapper').style.display = isChecked ? 'block' : 'none';
+            document.getElementById('remind-time-container').style.display = isChecked ? 'block' : 'none';
         }
 
         function setQuickDate(inputId, days) {
@@ -319,18 +354,18 @@
                     }
 
                     const safeBody = task.body.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    // Добавляем информацию о напоминании, если оно есть
                     const remindIcon = task.remind ? ' 🔔' : '';
                     
                     let checkboxHTML = '';
                     if (currentTab === 'my') checkboxHTML = `<div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>`;
                     if (currentTab === 'shared' && task.author_id !== userId) checkboxHTML = `<div class="checkbox" onclick="event.stopPropagation(); completeTask(${task.id}, this.parentElement)"></div>`;
 
-                    const editIconHTML = currentTab === 'shared' ? '' : `<div class="edit-icon" onclick="event.stopPropagation(); openEditModal(${task.id}, '${safeBody}', ${task.author_id || 0}, '${task.date_to || ''}', ${task.remind || false}, '${task.remind_days || ''}')">✏️</div>`;
+                    // Передаем remind_time в openEditModal
+                    const editIconHTML = currentTab === 'shared' ? '' : `<div class="edit-icon" onclick="event.stopPropagation(); openEditModal(${task.id}, '${safeBody}', ${task.author_id || 0}, '${task.date_to || ''}', ${task.remind || false}, '${task.remind_days || ''}', '${task.remind_time || 'morning'}')">✏️</div>`;
 
                     item.innerHTML = `
                         ${checkboxHTML}
-                        <div class="task-content" onclick="openEditModal(${task.id}, '${safeBody}', ${task.author_id || 0}, '${task.date_to || ''}', ${task.remind || false}, '${task.remind_days || ''}')">
+                        <div class="task-content" onclick="openEditModal(${task.id}, '${safeBody}', ${task.author_id || 0}, '${task.date_to || ''}', ${task.remind || false}, '${task.remind_days || ''}', '${task.remind_time || 'morning'}')">
                             <div>#${task.id} ${task.body}${remindIcon}</div>
                             ${subText}
                         </div>
@@ -358,7 +393,7 @@
             }
         }
 
-        function openEditModal(taskId, currentText, authorId, currentDue, isRemind, remindDaysStr) {
+        function openEditModal(taskId, currentText, authorId, currentDue, isRemind, remindDaysStr, remindTimeStr) {
             editingTaskId = taskId;
             currentTaskAuthorId = authorId;
             document.getElementById('edit-text').value = currentText;
@@ -366,11 +401,15 @@
             
             document.getElementById('edit-remind-checkbox').checked = isRemind;
             
+            // Инициализация времени
+            currentRemindTime = remindTimeStr || 'morning';
+            updateTimeButtons();
+
             // Инициализация выбранных дней
             if (isRemind && remindDaysStr) {
                 selectedDays = remindDaysStr.split(',').map(Number).filter(n => !isNaN(n));
             } else {
-                selectedDays = []; // По умолчанию пусто
+                selectedDays = []; 
             }
             renderDayButtons();
             toggleRemindDays();
@@ -426,7 +465,6 @@
             let remind = document.getElementById('edit-remind-checkbox').checked;
             let remindDays = selectedDays.join(',');
 
-            // Если галка стоит, но дни не выбраны — принудительно снимаем галку
             if (remind && selectedDays.length === 0) {
                 remind = false;
             }
@@ -441,7 +479,8 @@
                         full_text: fullText, 
                         date_str: dateStr,
                         remind: remind,
-                        remind_days: remindDays
+                        remind_days: remindDays,
+                        remind_time: currentRemindTime // <--- Передаем время
                     })
                 });
                 if (!response.ok) throw new Error('Ошибка');
@@ -556,6 +595,7 @@
                         full_text: fullText, 
                         date_str: dateStr,
                         remind: remind,
+                        remind_time: "morning", // <--- При создании по умолчанию утро
                         remind_days: "1,2,3,4,5,6,7"
                     })
                 });
